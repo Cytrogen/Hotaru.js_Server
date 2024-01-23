@@ -39,12 +39,40 @@ const socketIO = new Server(server, {
     }
 });
 
+let users = [];
+
 /**
  * Listen on SocketIO server.
  */
 
 socketIO.on("connection", (socket) => {
     console.log(`Client connected [id=${socket.id}]`);
+
+    socket.on('register', (data) => {
+        users.push(data);
+
+        socket.emit('register', {
+            status: 200,
+            token: 'Bearer ' + users.username
+        });
+    });
+
+    socket.on('login', (data) => {
+        const { username, password } = data;
+
+        const user = users.find(user => user.username === username && user.password === password);
+        if (user) {
+            socket.emit('login', {
+                status: 200,
+                token: 'Bearer ' + user.username
+            });
+        } else {
+            socket.emit('login', {
+                status: 400,
+                token: null
+            });
+        }
+    });
 
     socket.on("disconnect", () => {
         console.log(`Client disconnected [id=${socket.id}]`);
