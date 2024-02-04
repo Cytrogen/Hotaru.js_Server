@@ -1,77 +1,58 @@
 #!/usr/bin/env node
 
-/**
- * Module dependencies.
- */
-
 const app = require('../app');
 const debug = require('debug')('server:server');
 const http = require('http');
 const cors = require('cors');
-const { Server } = require("socket.io");
+const { Server } = require('socket.io');
+const { generateJWT } = require('./utils/jwt');
 
-/**
- * Get port from environment and store in Express.
- */
-
+// Get port from environment and store in Express.
 const port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
 
-/**
- * Enable CORS
- */
-
+// Enable CORS.
 app.use(cors());
 
-/**
- * Create HTTP server.
- */
-
+// Create HTTP server.
 const server = http.createServer(app);
 
-/**
- * Create SocketIO server.
- */
-
+// Create SocketIO server.
 const socketIO = new Server(server, {
     cors: {
         origin: "http://localhost:3000"
     }
 });
 
+// A temporary database for users.
 let users = [];
 
-/**
- * Listen on SocketIO server.
- */
-
+// Listen on SocketIO server.
 socketIO.on("connection", (socket) => {
     console.log(`Client connected [id=${socket.id}]`);
 
+    // socket.on() --> listen to the event from the client
+    // socket.emit() --> send the event to the client
+
     socket.on('register', (data) => {
+        // Add the new user to the temporary database.
         users.push(data);
 
-        socket.emit('register', {
+        socketIO.emit('newRegisteredUser', {
             status: 200,
-            token: 'Bearer ' + users.username
+            token: generateJWT(data.username)
         });
     });
 
     socket.on('login', (data) => {
         const { username, password } = data;
 
+        // Find the user from the temporary database.
         const user = users.find(user => user.username === username && user.password === password);
-        if (user) {
-            socket.emit('login', {
-                status: 200,
-                token: 'Bearer ' + user.username
-            });
-        } else {
-            socket.emit('login', {
-                status: 400,
-                token: null
-            });
-        }
+        socket.emit('loggedInUser', {
+            status: user ? 200 : 400,
+            token: user ? generateJWT(user.username) : null
+        });
     });
 
     socket.on("disconnect", () => {
@@ -79,18 +60,16 @@ socketIO.on("connection", (socket) => {
     });
 });
 
-/**
- * Listen on provided port, on all network interfaces.
- */
-
+// Listen on provided port, on all network interfaces.
 server.listen(port);
 server.on('error', onError);
 server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.
+ * @param val
+ * @returns {number|*|boolean}
  */
-
 function normalizePort(val) {
     const port = parseInt(val, 10);
 
@@ -109,8 +88,8 @@ function normalizePort(val) {
 
 /**
  * Event listener for HTTP server "error" event.
+ * @param error
  */
-
 function onError(error) {
     if (error.syscall !== 'listen') {
         throw error;

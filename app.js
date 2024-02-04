@@ -1,54 +1,32 @@
-/**
- * Import the dependencies.
- */
-
 const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 
-/**
- * Import the routes.
- */
-
+// Import the routes.
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 
-/**
- * Create the Express app.
- */
-
+// Create the Express app.
 const app = express();
 
-/**
- * Set up the view engine.
- */
-
+// Set up the view engine.
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
-/**
- * Configure the middleware.
- */
-
+// Configure the middleware.
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-/**
- * Configure the routes.
- */
-
+// Configure the routes.
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/users.js', usersRouter);
 
-/**
- * Catch 404 and forward to error handler.
- */
-
+// Catch 404 and forward to error handler.
 app.use(function(req, res, next) {
     next(createError(404));
 });
