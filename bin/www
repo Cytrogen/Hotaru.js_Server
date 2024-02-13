@@ -5,10 +5,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const debug = require("debug")("server:server");
+const bcrypt = require("bcrypt");
 
 const app = require("../app");
+const MonthToNumber = require("./utils/common");
 const { generateJWT } = require("./utils/jwt");
-const { getFileData, setFileData } = require("./utils/common");
+const { User } = require("./utils/data/user");
 
 // Get port from environment and store in Express.
 const port = normalizePort(process.env.PORT || "4000");
@@ -35,12 +37,13 @@ socketIO.on("connection", (socket) => {
     // socket.emit() --> send the event to the client
 
     socket.on("register", async userData => {
-        const users = await getFileData("users.json");
-        const existingUser = users.find(u => u.username === userData.username);
-
+        const existingUser = await User.findOne({
+            emailAddress: userData.emailAddress,
+            username: userData.username
+        });
         // If the user already exists, send a message to the client.
         if (existingUser) {
-            console.log(`[U0102] User already exists: ${userData}`);
+            console.log(`[U0102] User already exists: ${userData.username}`);
             socket.emit("newRegisteredUser", {
                 status: "U0102",
                 message: "User already exists."
@@ -49,8 +52,15 @@ socketIO.on("connection", (socket) => {
         }
 
         // Add the new user to the database.
-        users.push({ id: users.length + 1, ...userData });
-        console.log(`[00000] User registered: ${userData}`);
+        await User.create({
+            emailAddress: userData.emailAddress,
+            username: userData.username,
+            password: userData.password,
+            DOBYear: userData.birthYear,
+            DOBMonth: MonthToNumber[userData.birthMonth],
+            DOBDay: userData.birthDay
+        })
+        console.log(`[00000] User registered: ${userData.username}`);
 
         // Send a message to the client that the user has been registered.
         socketIO.emit("newRegisteredUser", {
@@ -60,12 +70,12 @@ socketIO.on("connection", (socket) => {
     });
 
     socket.on("login", async userData => {
-        const users = await getFileData("users.json");
-
-        // Find the user from the temporary database.
-        const existingUser = users.find(u => u.username === userData.username);
+        // Find the user from the database.
+        const existingUser = await User.findOne({
+            username: userData.username
+        });
         if (!existingUser) {
-            console.log(`[U0201] User does not exist: ${userData}`);
+            console.log(`[U0201] User does not exist: ${userData.username}`);
             socket.emit("loggedInUser", {
                 status: "U0201",
                 message: "User does not exist."
@@ -73,25 +83,30 @@ socketIO.on("connection", (socket) => {
             return;
         }
         
-        const confirmPassword = users.find(u => u.password === userData.password);
-        if (!confirmPassword) {
-            console.log(`[U0202] Password is incorrect: ${userData}`);
-            socket.emit("loggedInUser", {
-                status: "U0202",
-                message: "Password is incorrect."
-            });
-            return;
-        }
+        bcrypt.compare(userData.password, existingUser.password, (err, confirmPassword) => {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            if (!confirmPassword) {
+                console.log(`[U0202] Password is incorrect: ${userData.password}`);
+                socket.emit("loggedInUser", {
+                    status: "U0202",
+                    message: "Password is incorrect."
+                });
+                return;
+            }
 
-        console.log(`[00000] User logged in: ${userData}`);
-        socket.emit("loggedInUser", {
-            status: "00000",
-            token: generateJWT(existingUser.username)
+            console.log(`[00000] User logged in: ${userData.username}`);
+            socket.emit("loggedInUser", {
+                status: "00000",
+                token: generateJWT(userData.username)
+            });
         });
     });
 
     socket.on("privateMessageSent", userData => {
-        console.log(`[00000] Private message sent: ${userData}`);
+        console.log(`[00000] Private message sent: ${userData.text}`);
     });
 
     socket.on("disconnect", () => {
