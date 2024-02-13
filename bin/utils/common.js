@@ -1,10 +1,6 @@
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
 const { promisify } = require('util');
-
-// Read and write data using promises.
-const readFile = promisify(fs.readFile);
-const writeFile = promisify(fs.writeFile);
 
 /**
  * Get all data from JSON file.
@@ -12,9 +8,11 @@ const writeFile = promisify(fs.writeFile);
  * @returns {Promise<any>}
  */
 const getFileData = async fileName => {
-    const filePath = path.join(__dirname, `./data/${fileName}.json`);
-    const data = await readFile(filePath, 'utf-8');
-    return JSON.parse(data);
+    const filePath = path.join(__dirname, `./data/${fileName}`);
+    await fs.readFileSync(filePath)
+        .then(data => {
+            return JSON.parse(data)
+        })
 }
 
 /**
@@ -24,7 +22,9 @@ const getFileData = async fileName => {
  * @returns {Promise<void>}
  */
 const setFileData = async (fileName, data) => {
-    const filePath = path.join(__dirname, `./data/${fileName}.json`);
-    const datas = JSON.stringify(data, null, '  ');
-    await writeFile(filePath, datas);
+    const filePath = path.join(__dirname, `./data/${fileName}`);
+    const dataList = JSON.stringify(data, null, '  ');
+    await fs.writeFile(filePath, dataList);
 }
+
+module.exports = { getFileData, setFileData }

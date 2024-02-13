@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
-const app = require('../app');
-const debug = require('debug')('server:server');
-const http = require('http');
-const cors = require('cors');
-const { Server } = require('socket.io');
-const { generateJWT } = require('./utils/jwt');
+const http = require("http");
+
+const { Server } = require("socket.io");
+const cors = require("cors");
+const debug = require("debug")("server:server");
+
+const app = require("../app");
+const { generateJWT } = require("./utils/jwt");
+const { getFileData, setFileData } = require("./utils/common");
 
 // Get port from environment and store in Express.
-const port = normalizePort(process.env.PORT || '4000');
-app.set('port', port);
+const port = normalizePort(process.env.PORT || "4000");
+app.set("port", port);
 
 // Enable CORS.
 app.use(cors());
@@ -24,35 +27,71 @@ const socketIO = new Server(server, {
     }
 });
 
-// A temporary database for users.
-let users = [];
-
 // Listen on SocketIO server.
 socketIO.on("connection", (socket) => {
-    console.log(`Client connected [id=${socket.id}]`);
+    // console.log(`Client connected [id=${socket.id}]`);
 
     // socket.on() --> listen to the event from the client
     // socket.emit() --> send the event to the client
 
-    socket.on('register', (data) => {
-        // Add the new user to the temporary database.
-        users.push(data);
+    socket.on("register", async userData => {
+        const users = await getFileData("users.json");
+        const existingUser = users.find(u => u.username === userData.username);
 
-        socketIO.emit('newRegisteredUser', {
-            status: 200,
-            token: generateJWT(data.username)
+        // If the user already exists, send a message to the client.
+        if (existingUser) {
+            console.log(`[U0102] User already exists: ${userData}`);
+            socket.emit("newRegisteredUser", {
+                status: "U0102",
+                message: "User already exists."
+            });
+            return;
+        }
+
+        // Add the new user to the database.
+        users.push({ id: users.length + 1, ...userData });
+        console.log(`[00000] User registered: ${userData}`);
+
+        // Send a message to the client that the user has been registered.
+        socketIO.emit("newRegisteredUser", {
+            status: "00000",
+            token: generateJWT(userData.username)
         });
     });
 
-    socket.on('login', (data) => {
-        const { username, password } = data;
+    socket.on("login", async userData => {
+        const users = await getFileData("users.json");
 
         // Find the user from the temporary database.
-        const user = users.find(user => user.username === username && user.password === password);
-        socket.emit('loggedInUser', {
-            status: user ? 200 : 400,
-            token: user ? generateJWT(user.username) : null
+        const existingUser = users.find(u => u.username === userData.username);
+        if (!existingUser) {
+            console.log(`[U0201] User does not exist: ${userData}`);
+            socket.emit("loggedInUser", {
+                status: "U0201",
+                message: "User does not exist."
+            });
+            return;
+        }
+        
+        const confirmPassword = users.find(u => u.password === userData.password);
+        if (!confirmPassword) {
+            console.log(`[U0202] Password is incorrect: ${userData}`);
+            socket.emit("loggedInUser", {
+                status: "U0202",
+                message: "Password is incorrect."
+            });
+            return;
+        }
+
+        console.log(`[00000] User logged in: ${userData}`);
+        socket.emit("loggedInUser", {
+            status: "00000",
+            token: generateJWT(existingUser.username)
         });
+    });
+
+    socket.on("privateMessageSent", userData => {
+        console.log(`[00000] Private message sent: ${userData}`);
     });
 
     socket.on("disconnect", () => {
@@ -62,8 +101,8 @@ socketIO.on("connection", (socket) => {
 
 // Listen on provided port, on all network interfaces.
 server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
+server.on("error", onError);
+server.on("listening", onListening);
 
 /**
  * Normalize a port into a number, string, or false.
@@ -91,22 +130,22 @@ function normalizePort(val) {
  * @param error
  */
 function onError(error) {
-    if (error.syscall !== 'listen') {
+    if (error.syscall !== "listen") {
         throw error;
     }
 
-    const bind = typeof port === 'string'
-        ? 'Pipe ' + port
-        : 'Port ' + port;
+    const bind = typeof port === "string"
+        ? "Pipe " + port
+        : "Port " + port;
 
     // handle specific listen errors with friendly messages
     switch (error.code) {
-        case 'EACCES':
-            console.error(bind + ' requires elevated privileges');
+        case "EACCES":
+            console.error(bind + " requires elevated privileges");
             process.exit(1);
             break;
-        case 'EADDRINUSE':
-            console.error(bind + ' is already in use');
+        case "EADDRINUSE":
+            console.error(bind + " is already in use");
             process.exit(1);
             break;
         default:
@@ -120,8 +159,8 @@ function onError(error) {
 
 function onListening() {
     const addr = server.address();
-    const bind = typeof addr === 'string'
-        ? 'pipe ' + addr
-        : 'port ' + addr.port;
-    debug('Listening on ' + bind);
+    const bind = typeof addr === "string"
+        ? "pipe " + addr
+        : "port " + addr.port;
+    debug("Listening on " + bind);
 }
