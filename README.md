@@ -12,6 +12,16 @@
 > ```
 > mongodb://mongodb:27017/hotaru
 > ```
+>
+> `./bin/www`的Socket.io服务配置也需要改成：
+>
+> ```jsx
+> const socketIO = new Server(server, {
+>     cors: {
+>         origin: "http://localhost" <-- 去掉端口3000
+>     }
+> });
+> ```
 
 在项目根目录创建`docker-compose.yml`：
 
