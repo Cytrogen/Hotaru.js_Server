@@ -8,9 +8,9 @@ const debug = require("debug")("server:server");
 const bcrypt = require("bcrypt");
 
 const app = require("../app");
-const MonthToNumber = require("./utils/common");
 const { generateJWT } = require("./utils/jwt");
-const { User } = require("./utils/data/user");
+const MonthToNumber = require("./utils/common");
+const User = require("./utils/data/user");
 
 // Get port from environment and store in Express.
 const port = normalizePort(process.env.PORT || "4000");
@@ -25,7 +25,7 @@ const server = http.createServer(app);
 // Create SocketIO server.
 const socketIO = new Server(server, {
     cors: {
-        origin: "http://localhost:3000"
+        origin: "http://localhost"
     }
 });
 
@@ -37,13 +37,22 @@ socketIO.on("connection", (socket) => {
     // socket.emit() --> send the event to the client
 
     socket.on("register", async userData => {
-        const existingUser = await User.findOne({
-            emailAddress: userData.emailAddress,
+        const existingUserEmail = await User.findOne({
+            emailAddress: userData.emailAddress
+        });
+        const existingUsername = await User.findOne({
             username: userData.username
         });
+
         // If the user already exists, send a message to the client.
-        if (existingUser) {
+        if (existingUserEmail || existingUsername) {
             console.log(`[U0102] User already exists: ${userData.username}`);
+            User.find({}).then((docs) => {
+                console.log(docs); // print all users
+            }).catch((err) => {
+                console.error(err);
+            });
+
             socket.emit("newRegisteredUser", {
                 status: "U0102",
                 message: "User already exists."
@@ -73,7 +82,7 @@ socketIO.on("connection", (socket) => {
         // Find the user from the database.
         const existingUser = await User.findOne({
             username: userData.username
-        });
+        }).select("password");
         if (!existingUser) {
             console.log(`[U0201] User does not exist: ${userData.username}`);
             socket.emit("loggedInUser", {
@@ -82,8 +91,8 @@ socketIO.on("connection", (socket) => {
             });
             return;
         }
-        
-        bcrypt.compare(userData.password, existingUser.password, (err, confirmPassword) => {
+
+        bcrypt.compare(userData.password, existingUser.get("password"), (err, confirmPassword) => {
             if (err) {
                 console.error(err);
                 return;
@@ -107,6 +116,7 @@ socketIO.on("connection", (socket) => {
 
     socket.on("privateMessageSent", userData => {
         console.log(`[00000] Private message sent: ${userData.text}`);
+        // socket.emit()
     });
 
     socket.on("disconnect", () => {
