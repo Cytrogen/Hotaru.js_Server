@@ -25,7 +25,7 @@ const server = http.createServer(app);
 // Create SocketIO server.
 const socketIO = new Server(server, {
     cors: {
-        origin: "http://localhost"
+        origin: ["http://localhost", "http://localhost:3000"]
     }
 });
 

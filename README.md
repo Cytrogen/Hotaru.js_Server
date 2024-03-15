@@ -1,5 +1,9 @@
 # Hotaru_JS Server
 
+> 该项目已停止更新！！！新项目地址：[Hotaru.TS](https://github.com/Cytrogen/Hotaru.TS)。
+> 
+> Express框架也被NestJS取代。
+
 这是Hotaru_JS的服务端代码。
 
 技术栈使用了Express、Socket.io作为通信、MongoDB作为数据库。
